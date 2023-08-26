@@ -41,12 +41,12 @@ class Layer(object):
 
     def __init__(self, **kwargs):
         allowed_kwargs = {'name', 'logging', 'model_size'}
-        for kwarg in kwargs.keys():
-            assert kwarg in allowed_kwargs, 'Invalid keyword argument: ' + kwarg
+        for kwarg in kwargs:
+            assert kwarg in allowed_kwargs, f'Invalid keyword argument: {kwarg}'
         name = kwargs.get('name')
         if not name:
             layer = self.__class__.__name__.lower()
-            name = layer + '_' + str(get_layer_uid(layer))
+            name = f'{layer}_{str(get_layer_uid(layer))}'
         self.name = name
         self.vars = {}
         logging = kwargs.get('logging', False)
@@ -59,15 +59,15 @@ class Layer(object):
     def __call__(self, inputs):
         with tf.name_scope(self.name):
             if self.logging and not self.sparse_inputs:
-                tf.summary.histogram(self.name + '/inputs', inputs)
+                tf.summary.histogram(f'{self.name}/inputs', inputs)
             outputs = self._call(inputs)
             if self.logging:
-                tf.summary.histogram(self.name + '/outputs', outputs)
+                tf.summary.histogram(f'{self.name}/outputs', outputs)
             return outputs
 
     def _log_vars(self):
         for var in self.vars:
-            tf.summary.histogram(self.name + '/vars/' + var, self.vars[var])
+            tf.summary.histogram(f'{self.name}/vars/{var}', self.vars[var])
 
 
 class Dense(Layer):
@@ -90,7 +90,7 @@ class Dense(Layer):
         if sparse_inputs:
             self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        with tf.variable_scope(self.name + '_vars'):
+        with tf.variable_scope(f'{self.name}_vars'):
             self.vars['weights'] = tf.get_variable('weights', shape=(input_dim, output_dim),
                                          dtype=tf.float32, 
                                          initializer=tf.contrib.layers.xavier_initializer(),

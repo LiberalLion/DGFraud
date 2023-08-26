@@ -129,14 +129,14 @@ class Data(object):
         print('n_metapaths=%d' % (self.n_metapath))
         print('n_metapahts=%d' % (self.n_metapath))
         print('n_nodes=%d' % (self.n_nodes))
-        print('n_interactions=%s' % (self.n_int))
+        print(f'n_interactions={self.n_int}')
         print('n_train=%d, n_test=%d, sparsity=%s' % (self.n_train, self.n_test, (np.array(self.n_int)/(self.n_nodes * self.n_nodes))))
 
 
     def get_sparsity_split(self):
         try:
             split_uids, split_state = [], []
-            lines = open(self.save_path + '/sparsity.split', 'r').readlines()
+            lines = open(f'{self.save_path}/sparsity.split', 'r').readlines()
 
             for idx, line in enumerate(lines):
                 if idx % 2 == 0:
@@ -148,7 +148,7 @@ class Data(object):
 
         except Exception:
             split_uids, split_state = self.create_sparsity_split()
-            f = open(self.save_path + '/sparsity.split', 'w')
+            f = open(f'{self.save_path}/sparsity.split', 'w')
             for idx in range(len(split_state)):
                 f.write(split_state[idx] + '\n')
                 f.write(' '.join([str(uid) for uid in split_uids[idx]]) + '\n')
@@ -160,7 +160,7 @@ class Data(object):
 
     def create_sparsity_split(self):
         all_users_to_test = list(self.test_set.keys())
-        user_n_iid = dict()
+        user_n_iid = {}
 
         # generate a dictionary to store (key=n_iids, value=a list of uid).
         for uid in all_users_to_test:
@@ -169,11 +169,11 @@ class Data(object):
 
             n_iids = len(train_iids) + len(test_iids)
 
-            if n_iids not in user_n_iid.keys():
-                user_n_iid[n_iids] = [uid]
-            else:
+            if n_iids in user_n_iid:
                 user_n_iid[n_iids].append(uid)
-        split_uids = list()
+            else:
+                user_n_iid[n_iids] = [uid]
+        split_uids = []
 
         # split the whole user set into four subset.
         temp = []

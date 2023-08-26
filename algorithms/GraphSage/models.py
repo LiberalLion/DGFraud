@@ -20,8 +20,8 @@ FLAGS = flags.FLAGS
 class Model(object):
     def __init__(self, **kwargs):
         allowed_kwargs = {'name', 'logging', 'model_size'}
-        for kwarg in kwargs.keys():
-            assert kwarg in allowed_kwargs, 'Invalid keyword argument: ' + kwarg
+        for kwarg in kwargs:
+            assert kwarg in allowed_kwargs, f'Invalid keyword argument: {kwarg}'
         name = kwargs.get('name')
         if not name:
             name = self.__class__.__name__.lower()
@@ -82,16 +82,16 @@ class Model(object):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver(self.vars)
-        save_path = saver.save(sess, "tmp/%s.ckpt" % self.name)
-        print("Model saved in file: %s" % save_path)
+        save_path = saver.save(sess, f"tmp/{self.name}.ckpt")
+        print(f"Model saved in file: {save_path}")
 
     def load(self, sess=None):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver(self.vars)
-        save_path = "tmp/%s.ckpt" % self.name
+        save_path = f"tmp/{self.name}.ckpt"
         saver.restore(sess, save_path)
-        print("Model restored from file: %s" % save_path)
+        print(f"Model restored from file: {save_path}")
 
 
 class MLP(Model):
@@ -236,13 +236,15 @@ class SampleAndAggregate(GeneralizedModel):
             self.features = self.embeds
         else:
             self.features = tf.Variable(tf.constant(features, dtype=tf.float32), trainable=False)
-            if not self.embeds is None:
+            if self.embeds is not None:
                 self.features = tf.concat([self.embeds, self.features], axis=1)
         self.degrees = degrees
         self.concat = concat
 
-        self.dims = [(0 if features is None else features.shape[1]) + identity_dim]
-        self.dims.extend([layer_infos[i].output_dim for i in range(len(layer_infos))])
+        self.dims = [
+            (0 if features is None else features.shape[1]) + identity_dim,
+            *[layer_infos[i].output_dim for i in range(len(layer_infos))],
+        ]
         self.batch_size = placeholders["batch_size"]
         self.placeholders = placeholders
         self.layer_infos = layer_infos

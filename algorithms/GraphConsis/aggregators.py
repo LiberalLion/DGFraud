@@ -21,11 +21,7 @@ class MeanAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([neigh_input_dim, output_dim],
                                                         name='neigh_weights')
@@ -81,11 +77,7 @@ class HeteMeanAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([neigh_input_dim, output_dim],
                                                         name='neigh_weights')
@@ -142,11 +134,7 @@ class GCNAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['weights'] = glorot([neigh_input_dim, output_dim],
                                                         name='neigh_weights')
@@ -192,28 +180,26 @@ class MaxPoolingAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
-        if model_size == "small":
-            hidden_dim = self.hidden_dim = 512
-        elif model_size == "big":
+        name = f'/{name}' if name is not None else ''
+        if model_size == "big":
             hidden_dim = self.hidden_dim = 1024
 
-        self.mlp_layers = []
-        self.mlp_layers.append(Dense(input_dim=neigh_input_dim,
-                                 output_dim=hidden_dim,
-                                 act=tf.nn.relu,
-                                 dropout=dropout,
-                                 sparse_inputs=False,
-                                 logging=self.logging))
-
+        elif model_size == "small":
+            hidden_dim = self.hidden_dim = 512
+        self.mlp_layers = [
+            Dense(
+                input_dim=neigh_input_dim,
+                output_dim=hidden_dim,
+                act=tf.nn.relu,
+                dropout=dropout,
+                sparse_inputs=False,
+                logging=self.logging,
+            )
+        ]
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([hidden_dim, output_dim],
                                                         name='neigh_weights')
-           
+
             self.vars['self_weights'] = glorot([input_dim, output_dim],
                                                         name='self_weights')
             if self.bias:
@@ -270,28 +256,26 @@ class MeanPoolingAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
-        if model_size == "small":
-            hidden_dim = self.hidden_dim = 512
-        elif model_size == "big":
+        name = f'/{name}' if name is not None else ''
+        if model_size == "big":
             hidden_dim = self.hidden_dim = 1024
 
-        self.mlp_layers = []
-        self.mlp_layers.append(Dense(input_dim=neigh_input_dim,
-                                 output_dim=hidden_dim,
-                                 act=tf.nn.relu,
-                                 dropout=dropout,
-                                 sparse_inputs=False,
-                                 logging=self.logging))
-
+        elif model_size == "small":
+            hidden_dim = self.hidden_dim = 512
+        self.mlp_layers = [
+            Dense(
+                input_dim=neigh_input_dim,
+                output_dim=hidden_dim,
+                act=tf.nn.relu,
+                dropout=dropout,
+                sparse_inputs=False,
+                logging=self.logging,
+            )
+        ]
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([hidden_dim, output_dim],
                                                         name='neigh_weights')
-           
+
             self.vars['self_weights'] = glorot([input_dim, output_dim],
                                                         name='self_weights')
             if self.bias:
@@ -349,25 +333,24 @@ class TwoMaxLayerPoolingAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
-        if model_size == "small":
-            hidden_dim_1 = self.hidden_dim_1 = 512
-            hidden_dim_2 = self.hidden_dim_2 = 256
-        elif model_size == "big":
+        name = f'/{name}' if name is not None else ''
+        if model_size == "big":
             hidden_dim_1 = self.hidden_dim_1 = 1024
             hidden_dim_2 = self.hidden_dim_2 = 512
 
-        self.mlp_layers = []
-        self.mlp_layers.append(Dense(input_dim=neigh_input_dim,
-                                 output_dim=hidden_dim_1,
-                                 act=tf.nn.relu,
-                                 dropout=dropout,
-                                 sparse_inputs=False,
-                                 logging=self.logging))
+        elif model_size == "small":
+            hidden_dim_1 = self.hidden_dim_1 = 512
+            hidden_dim_2 = self.hidden_dim_2 = 256
+        self.mlp_layers = [
+            Dense(
+                input_dim=neigh_input_dim,
+                output_dim=hidden_dim_1,
+                act=tf.nn.relu,
+                dropout=dropout,
+                sparse_inputs=False,
+                logging=self.logging,
+            )
+        ]
         self.mlp_layers.append(Dense(input_dim=hidden_dim_1,
                                  output_dim=hidden_dim_2,
                                  act=tf.nn.relu,
@@ -379,7 +362,7 @@ class TwoMaxLayerPoolingAggregator(Layer):
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([hidden_dim_2, output_dim],
                                                         name='neigh_weights')
-           
+
             self.vars['self_weights'] = glorot([input_dim, output_dim],
                                                         name='self_weights')
             if self.bias:
@@ -436,20 +419,16 @@ class SeqAggregator(Layer):
         if neigh_input_dim is None:
             neigh_input_dim = input_dim
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
-        if model_size == "small":
-            hidden_dim = self.hidden_dim = 128
-        elif model_size == "big":
+        name = f'/{name}' if name is not None else ''
+        if model_size == "big":
             hidden_dim = self.hidden_dim = 256
 
+        elif model_size == "small":
+            hidden_dim = self.hidden_dim = 128
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([hidden_dim, output_dim],
                                                         name='neigh_weights')
-           
+
             self.vars['self_weights'] = glorot([input_dim, output_dim],
                                                         name='self_weights')
             if self.bias:

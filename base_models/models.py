@@ -14,8 +14,8 @@ class Model(object):
 
     def __init__(self, **kwargs):
         allowed_kwargs = {'name', 'logging'}
-        for kwarg in kwargs.keys():
-            assert kwarg in allowed_kwargs, 'Invalid keyword argument: ' + kwarg
+        for kwarg in kwargs:
+            assert kwarg in allowed_kwargs, f'Invalid keyword argument: {kwarg}'
         name = kwargs.get('name')
         if not name:
             name = self.__class__.__name__.lower()
@@ -60,16 +60,16 @@ class Model(object):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver(self.vars)
-        save_path = saver.save(sess, "tmp/%s.ckpt" % self.name)
-        print("Model saved in file: %s" % save_path)
+        save_path = saver.save(sess, f"tmp/{self.name}.ckpt")
+        print(f"Model saved in file: {save_path}")
 
     def load(self, sess=None):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver(self.vars)
-        save_path = "tmp/%s.ckpt" % self.name
+        save_path = f"tmp/{self.name}.ckpt"
         saver.restore(sess, save_path)
-        print("Model restored from file: %s" % save_path)
+        print(f"Model restored from file: {save_path}")
 
 
 class GCN(Model):

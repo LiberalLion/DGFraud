@@ -58,14 +58,16 @@ class SupervisedGraphsage(models.SampleAndAggregate):
             self.features = self.embeds
         else:
             self.features = tf.Variable(tf.constant(features, dtype=tf.float32), trainable=False)
-            if not self.embeds is None:
+            if self.embeds is not None:
                 self.features = tf.concat([self.embeds, self.features], axis=1)
         self.degrees = degrees
         self.concat = concat
         self.num_classes = num_classes
         self.sigmoid_loss = sigmoid_loss
-        self.dims = [(0 if features is None else features.shape[1]) + identity_dim]
-        self.dims.extend([layer_infos[i].output_dim for i in range(len(layer_infos))])
+        self.dims = [
+            (0 if features is None else features.shape[1]) + identity_dim,
+            *[layer_infos[i].output_dim for i in range(len(layer_infos))],
+        ]
         self.batch_size = placeholders["batch_size"]
         self.placeholders = placeholders
         self.layer_infos = layer_infos

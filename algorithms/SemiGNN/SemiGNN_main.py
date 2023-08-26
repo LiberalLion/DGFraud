@@ -35,8 +35,7 @@ def arg_parser():
     parser.add_argument('--alpha', default=0.5, help='loss alpha')
     parser.add_argument('--lamtha', default=0.5, help='loss lamtha')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def set_env(args):

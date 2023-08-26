@@ -79,7 +79,7 @@ def evaluate(sess, model, minibatch_iter, size=None):
     return node_outs_val[1], mic, mac, (time.time() - t_test)
 
 def log_dir():
-    log_dir = FLAGS.base_log_dir + "/sup-" + FLAGS.train_prefix.split("/")[-2]
+    log_dir = f"{FLAGS.base_log_dir}/sup-" + FLAGS.train_prefix.split("/")[-2]
     log_dir += "/{model:s}_{model_size:s}_{lr:0.4f}/".format(
             model=FLAGS.model,
             model_size=FLAGS.model_size,
@@ -110,14 +110,14 @@ def incremental_evaluate(sess, model, minibatch_iter, size, test=False):
     return np.mean(val_losses), f1_scores[0], f1_scores[1], (time.time() - t_test)
 
 def construct_placeholders(num_classes):
-    # Define placeholders
-    placeholders = {
-        'labels' : tf.placeholder(tf.float32, shape=(None, num_classes), name='labels'),
-        'batch' : tf.placeholder(tf.int32, shape=(None), name='batch1'),
-        'dropout': tf.placeholder_with_default(0., shape=(), name='dropout'),
-        'batch_size' : tf.placeholder(tf.int32, name='batch_size'),
+    return {
+        'labels': tf.placeholder(
+            tf.float32, shape=(None, num_classes), name='labels'
+        ),
+        'batch': tf.placeholder(tf.int32, shape=(None), name='batch1'),
+        'dropout': tf.placeholder_with_default(0.0, shape=(), name='dropout'),
+        'batch_size': tf.placeholder(tf.int32, name='batch_size'),
     }
-    return placeholders
 
 def train(train_data, test_data=None):
 
@@ -130,7 +130,7 @@ def train(train_data, test_data=None):
     else:
         num_classes = len(set(class_map.values()))
 
-    if not features is None:
+    if features is not None:
         # pad with dummy zero vector  
         features = np.vstack([features, np.zeros((features.shape[1],))])
 
@@ -242,17 +242,17 @@ def train(train_data, test_data=None):
     config.gpu_options.allow_growth = True
     #config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_FRACTION
     config.allow_soft_placement = True
-    
+
     # Initialize session
     sess = tf.Session(config=config)
     merged = tf.summary.merge_all()
     summary_writer = tf.summary.FileWriter(log_dir(), sess.graph)
-     
+
     # Init variables
     sess.run(tf.global_variables_initializer(), feed_dict={adj_info_ph: minibatch.adj})
-    
+
     # Train model
-    
+
     total_steps = 0
     avg_time = 0.0
     epoch_val_costs = []
@@ -287,7 +287,7 @@ def train(train_data, test_data=None):
 
             if total_steps % FLAGS.print_every == 0:
                 summary_writer.add_summary(outs[0], total_steps)
-    
+
             # Print results
             avg_time = (avg_time * total_steps + time.time() - t) / (total_steps + 1)
 
@@ -301,7 +301,7 @@ def train(train_data, test_data=None):
                       "val_f1_mic=", "{:.5f}".format(val_f1_mic), 
                       "val_f1_mac=", "{:.5f}".format(val_f1_mac), 
                       "time=", "{:.5f}".format(avg_time))
- 
+
             iter += 1
             total_steps += 1
 
@@ -310,7 +310,7 @@ def train(train_data, test_data=None):
 
         if total_steps > FLAGS.max_total_steps:
                 break
-    
+
     print("Optimization Finished!")
     sess.run(val_adj_info.op)
     val_cost, val_f1_mic, val_f1_mac, duration = incremental_evaluate(sess, model, minibatch, FLAGS.batch_size)
@@ -319,13 +319,13 @@ def train(train_data, test_data=None):
                   "f1_micro=", "{:.5f}".format(val_f1_mic),
                   "f1_macro=", "{:.5f}".format(val_f1_mac),
                   "time=", "{:.5f}".format(duration))
-    with open(log_dir() + "val_stats.txt", "w") as fp:
+    with open(f"{log_dir()}val_stats.txt", "w") as fp:
         fp.write("loss={:.5f} f1_micro={:.5f} f1_macro={:.5f} time={:.5f}".
                 format(val_cost, val_f1_mic, val_f1_mac, duration))
 
     print("Writing test set stats to file (don't peak!)")
     val_cost, val_f1_mic, val_f1_mac, duration = incremental_evaluate(sess, model, minibatch, FLAGS.batch_size, test=True)
-    with open(log_dir() + "test_stats.txt", "w") as fp:
+    with open(f"{log_dir()}test_stats.txt", "w") as fp:
         fp.write("loss={:.5f} f1_micro={:.5f} f1_macro={:.5f}".
                 format(val_cost, val_f1_mic, val_f1_mac))
 

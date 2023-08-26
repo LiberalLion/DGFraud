@@ -34,14 +34,10 @@ class BipartiteEdgePredLayer(Layer):
 
         self.bilinear_weights = bilinear_weights
 
-        if dropout:
-            self.dropout = placeholders['dropout']
-        else:
-            self.dropout = 0.
-
+        self.dropout = placeholders['dropout'] if dropout else 0.
         # output a likelihood term
         self.output_dim = 1
-        with tf.variable_scope(self.name + '_vars'):
+        with tf.variable_scope(f'{self.name}_vars'):
             # bilinear form
             if bilinear_weights:
                 #self.vars['weights'] = glorot([input_dim1, input_dim2],
@@ -55,13 +51,13 @@ class BipartiteEdgePredLayer(Layer):
             if self.bias:
                 self.vars['bias'] = zeros([self.output_dim], name='bias')
 
-        if loss_fn == 'xent':
-            self.loss_fn = self._xent_loss
-        elif loss_fn == 'skipgram':
-            self.loss_fn = self._skipgram_loss
-        elif loss_fn == 'hinge':
+        if loss_fn == 'hinge':
             self.loss_fn = self._hinge_loss
 
+        elif loss_fn == 'skipgram':
+            self.loss_fn = self._skipgram_loss
+        elif loss_fn == 'xent':
+            self.loss_fn = self._xent_loss
         if self.logging:
             self._log_vars()
 
@@ -70,14 +66,11 @@ class BipartiteEdgePredLayer(Layer):
         Args:
             inputs1: tensor of shape [batch_size x feature_size].
         """
-        # shape: [batch_size, input_dim1]
-        if self.bilinear_weights:
-            prod = tf.matmul(inputs2, tf.transpose(self.vars['weights']))
-            self.prod = prod
-            result = tf.reduce_sum(inputs1 * prod, axis=1)
-        else:
-            result = tf.reduce_sum(inputs1 * inputs2, axis=1)
-        return result
+        if not self.bilinear_weights:
+            return tf.reduce_sum(inputs1 * inputs2, axis=1)
+        prod = tf.matmul(inputs2, tf.transpose(self.vars['weights']))
+        self.prod = prod
+        return tf.reduce_sum(inputs1 * prod, axis=1)
 
     def neg_cost(self, inputs1, neg_samples, hard_neg_samples=None):
         """ For each input in batch, compute the sum of its affinity to negative samples.
@@ -88,8 +81,7 @@ class BipartiteEdgePredLayer(Layer):
         """
         if self.bilinear_weights:
             inputs1 = tf.matmul(inputs1, self.vars['weights'])
-        neg_aff = tf.matmul(inputs1, tf.transpose(neg_samples))
-        return neg_aff
+        return tf.matmul(inputs1, tf.transpose(neg_samples))
 
     def loss(self, inputs1, inputs2, neg_samples):
         """ negative sampling loss.
@@ -106,15 +98,15 @@ class BipartiteEdgePredLayer(Layer):
                 labels=tf.ones_like(aff), logits=aff)
         negative_xent = tf.nn.sigmoid_cross_entropy_with_logits(
                 labels=tf.zeros_like(neg_aff), logits=neg_aff)
-        loss = tf.reduce_sum(true_xent) + self.neg_sample_weights * tf.reduce_sum(negative_xent)
-        return loss
+        return tf.reduce_sum(true_xent) + self.neg_sample_weights * tf.reduce_sum(
+            negative_xent
+        )
 
     def _skipgram_loss(self, inputs1, inputs2, neg_samples, hard_neg_samples=None):
         aff = self.affinity(inputs1, inputs2)
         neg_aff = self.neg_cost(inputs1, neg_samples, hard_neg_samples)
         neg_cost = tf.log(tf.reduce_sum(tf.exp(neg_aff), axis=1))
-        loss = tf.reduce_sum(aff - neg_cost)
-        return loss
+        return tf.reduce_sum(aff - neg_cost)
 
     def _hinge_loss(self, inputs1, inputs2, neg_samples, hard_neg_samples=None):
         aff = self.affinity(inputs1, inputs2)

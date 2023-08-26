@@ -31,8 +31,7 @@ def arg_parser():
     parser.add_argument('--hidden2', default=16, help='Number of units in GCN hidden layer 2.')
     parser.add_argument('--gcn_output', default=4, help='gcn output size.')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def set_env(args):

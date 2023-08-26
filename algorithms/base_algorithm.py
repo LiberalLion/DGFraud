@@ -11,13 +11,13 @@ class Algorithm(object):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver()
-        save_path = saver.save(sess, "tmp/%s.ckpt" % 'temp')
-        print("Model saved in file: %s" % save_path)
+        save_path = saver.save(sess, 'tmp/temp.ckpt')
+        print(f"Model saved in file: {save_path}")
 
     def load(self, sess=None):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver()
-        save_path = "tmp/%s.ckpt" % 'temp'
+        save_path = 'tmp/temp.ckpt'
         saver.restore(sess, save_path)
-        print("Model restored from file: %s" % save_path)
+        print(f"Model restored from file: {save_path}")

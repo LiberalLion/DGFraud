@@ -34,8 +34,7 @@ def arg_parser():
     parser.add_argument('--encoding3', type=int, default=64)
     parser.add_argument('--encoding4', type=int, default=64)
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def set_env(args):

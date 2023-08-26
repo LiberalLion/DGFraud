@@ -72,7 +72,7 @@ class GEM(Algorithm):
         with tf.variable_scope('gem_embedding'):
             h = tf.get_variable(name='init_embedding', shape=[self.nodes, self.encoding],
                                 initializer=tf.contrib.layers.xavier_initializer())
-            for i in range(0, self.hop):
+            for _ in range(0, self.hop):
                 f = GEMLayer(self.placeholders, self.nodes, self.meta, self.embedding, self.encoding)
                 gem_out = f(inputs=h)
                 h = tf.reshape(gem_out, [self.nodes, self.encoding])

@@ -32,8 +32,7 @@ def arg_parser():
     parser.add_argument('--heads', default=1, help='gat heads')
     parser.add_argument('--layer_num', default=4, help='geniePath layer num')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def set_env(args):

@@ -76,8 +76,12 @@ class GeniePath(Algorithm):
             x = x[None, :]
             x = tf.contrib.layers.fully_connected(x, self.dim, activation_fn=lambda x: x)
 
-            gplayers = [GeniePathLayer(self.placeholders, self.nodes, self.in_dim, self.dim)
-                        for i in range(self.layer_num)]
+            gplayers = [
+                GeniePathLayer(
+                    self.placeholders, self.nodes, self.in_dim, self.dim
+                )
+                for _ in range(self.layer_num)
+            ]
             for i, l in enumerate(gplayers):
                 x, (h, c) = gplayers[i].forward(x, self.placeholders['a'], self.lstm_hidden, self.lstm_hidden)
                 x = x[None, :]

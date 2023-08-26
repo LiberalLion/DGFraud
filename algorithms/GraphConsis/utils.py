@@ -59,7 +59,7 @@ def load_data(prefix='./example_data/', file_name = 'YelpChi.mat', relations=['n
     G = nx.to_networkx_graph(adj_main)
     gs = [graph_process(g, feats, truelabels, test_idx) for g in gs]
     G = graph_process(G, feats, truelabels, test_idx)
-    if normalize and not feats is None:
+    if normalize and feats is not None:
         from sklearn.preprocessing import StandardScaler
         train_ids = np.array([id_map[n] for n in G.nodes()])
         train_feats = feats[train_ids]
@@ -67,9 +67,8 @@ def load_data(prefix='./example_data/', file_name = 'YelpChi.mat', relations=['n
         scaler.fit(train_feats)
         feats = scaler.transform(feats)
     if load_walks:
-        with open(prefix + "-walks.txt") as fp:
-            for line in fp:
-                walks.append(map(conversion, line.split()))
+        with open(f"{prefix}-walks.txt") as fp:
+            walks.extend(map(conversion, line.split()) for line in fp)
     return G, feats, id_map, walks, class_map, gs
 
 def run_random_walks(G, nodes, num_walks=N_WALKS):
@@ -77,9 +76,9 @@ def run_random_walks(G, nodes, num_walks=N_WALKS):
     for count, node in enumerate(nodes):
         if G.degree(node) == 0:
             continue
-        for i in range(num_walks):
+        for _ in range(num_walks):
             curr_node = node
-            for j in range(WALK_LEN):
+            for _ in range(WALK_LEN):
                 next_node = random.choice(G.neighbors(curr_node))
                 # self co-occurrences are useless
                 if curr_node != node:

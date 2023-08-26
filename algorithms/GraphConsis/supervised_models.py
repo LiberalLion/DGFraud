@@ -65,14 +65,16 @@ class SupervisedGraphconsis(models.SampleAndAggregate):
             self.features = self.embeds_context
         else:
             self.features = tf.Variable(tf.constant(features, dtype=tf.float32), trainable=False)
-            if not self.embeds_context is None:
+            if self.embeds_context is not None:
                 self.features = tf.concat([self.embeds_context, self.features], axis=1)
         self.degrees = degrees
         self.concat = concat
         self.num_classes = num_classes
         self.sigmoid_loss = sigmoid_loss
-        self.dims = [(0 if features is None else features.shape[1]) + identity_dim]
-        self.dims.extend([layer_infos[0][i].output_dim for i in range(len(layer_infos[0]))])
+        self.dims = [
+            (0 if features is None else features.shape[1]) + identity_dim,
+            *[layer_infos[0][i].output_dim for i in range(len(layer_infos[0]))],
+        ]
         self.batch_size = placeholders["batch_size"]
         self.placeholders = placeholders
         self.layer_infos = layer_infos
@@ -93,8 +95,7 @@ class SupervisedGraphconsis(models.SampleAndAggregate):
             support_sizes1_list.append(support_sizes1)
         num_samples = [layer_info.num_samples for layer_info in self.layer_infos[0]]
         self.outputs1_list = []
-        dim_mult = 2 if self.concat else 1 # multiplication to get the correct output dimension
-        dim_mult = dim_mult * 2
+        dim_mult = (2 if self.concat else 1) * 2
         for r_idx in range(self.num_relations):
             outputs1, self.aggregators = self.aggregate(samples1_list[r_idx], [self.features], self.dims, num_samples,
                 support_sizes1, concat=self.concat, model_size=self.model_size)

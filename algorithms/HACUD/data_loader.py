@@ -13,8 +13,7 @@ import zipfile
 # zip_src = '../dataset/DBLP4057_GAT_with_idx_tra200_val_800.zip'
 # dst_dir = '../dataset'
 def unzip_file(zip_src, dst_dir):
-    iz = zipfile.is_zipfile(zip_src)
-    if iz:
+    if iz := zipfile.is_zipfile(zip_src):
         zf = zipfile.ZipFile(zip_src, 'r')
         for file in zf.namelist():
             zf.extract(file, dst_dir)
@@ -26,12 +25,11 @@ def load_data_dblp(path='../../dataset/DBLP4057_GAT_with_idx_tra200_val_800.mat'
     data = sio.loadmat(path)
     truelabels, features = data['label'], data['features'].astype(float)
     N = features.shape[0]
-    rownetworks = []
-    
-    rownetworks.append(data['net_APA'] - np.eye(N))
+    rownetworks = [data['net_APA'] - np.eye(N)]
+
     rownetworks.append(data['net_APCPA'] - np.eye(N))
     rownetworks.append(data['net_APTPA'] - np.eye(N))
-    
+
     # rownetworks = [data['net_APA'] - np.eye(N), data['net_APCPA'] - np.eye(N), data['net_APTPA'] - np.eye(N)]
     y = truelabels
     index = range(len(y))

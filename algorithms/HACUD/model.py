@@ -69,16 +69,15 @@ class Model(object):
         self.opt = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
     
     def _init_weights(self):
-        all_weights = dict()
-
         initializer = tf.contrib.layers.xavier_initializer()
 
         print('using xavier initialization')
 
         self.fc = [self.emb_dim] + self.fc
-    
-        all_weights['W'] = tf.Variable(
-                initializer([self.f_dim, self.emb_dim]), name='W')
+
+        all_weights = {
+            'W': tf.Variable(initializer([self.f_dim, self.emb_dim]), name='W')
+        }
         all_weights['b'] = tf.Variable(
                 initializer([1, self.emb_dim]), name='b')
         tf.add_to_collection(tf.GraphKeys.WEIGHTS, all_weights['W'])
@@ -114,14 +113,14 @@ class Model(object):
         all_weights['W_f1'] = tf.Variable(
                 initializer([2*self.emb_dim, self.emb_dim]), name='W_f1')
         all_weights['b_f1'] = tf.Variable(
-                initializer([1, self.emb_dim]), name='b_f1')  
+                initializer([1, self.emb_dim]), name='b_f1')
         tf.add_to_collection(tf.GraphKeys.WEIGHTS, all_weights['W_f1'])
         tf.add_to_collection(tf.GraphKeys.WEIGHTS, all_weights['b_f1'])
 
         all_weights['W_f2'] = tf.Variable(
                 initializer([self.emb_dim, self.emb_dim]), name='W_f2')
         all_weights['b_f2'] = tf.Variable(
-                initializer([1, self.emb_dim]), name='b_f2') 
+                initializer([1, self.emb_dim]), name='b_f2')
         tf.add_to_collection(tf.GraphKeys.WEIGHTS, all_weights['W_f2'])
         tf.add_to_collection(tf.GraphKeys.WEIGHTS, all_weights['b_f2'])
 
@@ -133,25 +132,22 @@ class Model(object):
         fold_len = (self.n_nodes) // self.n_fold
         for i_fold in range(self.n_fold):
             start = i_fold * fold_len
-            if i_fold == self.n_fold -1:
-                end = self.n_nodes
-            else:
-                end = (i_fold + 1) * fold_len
+            end = self.n_nodes if i_fold == self.n_fold -1 else (i_fold + 1) * fold_len
             A_fold_hat.append(self._convert_sp_mat_to_sp_tensor(X[start:end]))
-            
+
         return A_fold_hat
     
     def _create_embedding(self):
         
-        A_fold_hat = {}
-        for n in range(self.n_metapath):
-            A_fold_hat['%d' %n] = self._split_A_hat(self.norm_adj[n])
-
+        A_fold_hat = {
+            '%d' % n: self._split_A_hat(self.norm_adj[n])
+            for n in range(self.n_metapath)
+        }
         embeddings = self.features
         embeddings = embeddings.astype(np.float32)
-        
+
         h = tf.matmul(embeddings, self.weights['W']) + self.weights['b']
-        
+
         embed_u = {}
         h_u = {}
         f_u = {}
@@ -166,7 +162,7 @@ class Model(object):
             embed_u['%d' %n] = [] 
             for f in range(self.n_fold):
                 embed_u['%d' %n].append(tf.sparse_tensor_dense_matmul(A_fold_hat['%d' %n][f], embeddings))
-            
+
             embed_u['%d' %n] = tf.concat(embed_u['%d' %n], 0)
 
             ''' Feature Fusion '''
@@ -178,29 +174,27 @@ class Model(object):
                                             + self.weights['b_f1'])
             alp_u['%d' %n] = tf.nn.relu(tf.matmul(v_u['%d' %n], self.weights['W_f2'])
                                             + self.weights['b_f2'])      
-            
+
             alp_hat['%d' %n] = tf.nn.softmax(alp_u['%d' %n], axis = 1)   
 
             f_tilde['%d' %n] = tf.multiply(alp_hat['%d' %n], f_u['%d' %n])                                
-            
+
         ''' Path Attention '''
 
-        f_c = []
-        for n in range(self.n_metapath):
-            f_c.append(f_tilde['%d' %n])
+        f_c = [f_tilde['%d' %n] for n in range(self.n_metapath)]
         f_c = tf.concat(f_c,1)
 
-        
+
         for n in range(self.n_metapath):     
             if n == 0:
                 beta = tf.matmul(f_c, tf.transpose(self.weights['z_%d' % n]))
                 f = f_tilde['%d' %n]
                 f = tf.expand_dims(f, -1)
-        
+
             else:
                 beta = tf.concat([beta, tf.matmul(f_c, tf.transpose(self.weights['z_%d' % n]))], axis = 1)
                 f = tf.concat([f,tf.expand_dims(f_tilde['%d' %n],-1)], axis = 2)
-        
+
         beta_u = tf.nn.softmax(beta, axis = 1)
         beta_u = tf.transpose(tf.expand_dims(beta_u, 0),(1,0,2))
 
@@ -219,28 +213,25 @@ class Model(object):
         return x
 
     def create_ce_loss(self, x, y):
- 
-        ce_loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(logits=x, labels=y),0)
-
-        return ce_loss
+     
+        return tf.reduce_sum(
+            tf.nn.softmax_cross_entropy_with_logits(logits=x, labels=y), 0
+        )
 
     def create_reg_loss(self):
         
-        # for key in self.weights.keys(): 
-        #     reg_loss += tf.contrib.layers.l2_regularizer(0.5)(self.weights[key])
-        # regularizer = tf.contrib.layers.l2_regularizer(0.5)
-        # reg_loss += tf.contrib.layers.apply_regularization(regularizer)
-        reg_loss = tf.add_n([tf.nn.l2_loss(tf.cast(v, tf.float32)) for v in tf.trainable_variables()])
-
-        return reg_loss
+        return tf.add_n(
+            [
+                tf.nn.l2_loss(tf.cast(v, tf.float32))
+                for v in tf.trainable_variables()
+            ]
+        )
 
     def create_loss(self, x, y):
         self.ce_loss = self.create_ce_loss(x,y)
         self.reg_loss = self.create_reg_loss()
 
-        loss = self.ce_loss + self.reg * self.reg_loss
-
-        return loss
+        return self.ce_loss + self.reg * self.reg_loss
 
     def _convert_sp_mat_to_sp_tensor(self, X):
         coo = X.tocoo().astype(np.float32)

@@ -114,14 +114,14 @@ def incremental_evaluate(sess, model, minibatch_iter, size, test=False):
     return np.mean(val_losses), f1_scores[0], f1_scores[1], auc_score, (time.time() - t_test)
 
 def construct_placeholders(num_classes):
-    # Define placeholders
-    placeholders = {
-        'labels' : tf.placeholder(tf.float32, shape=(None, num_classes), name='labels'),
-        'batch' : tf.placeholder(tf.int32, shape=(None), name='batch1'),
-        'dropout': tf.placeholder_with_default(0., shape=(), name='dropout'),
-        'batch_size' : tf.placeholder(tf.int32, name='batch_size'),
+    return {
+        'labels': tf.placeholder(
+            tf.float32, shape=(None, num_classes), name='labels'
+        ),
+        'batch': tf.placeholder(tf.int32, shape=(None), name='batch1'),
+        'dropout': tf.placeholder_with_default(0.0, shape=(), name='dropout'),
+        'batch_size': tf.placeholder(tf.int32, name='batch_size'),
     }
-    return placeholders
 
 def train(train_data, test_data=None):
 
@@ -136,7 +136,7 @@ def train(train_data, test_data=None):
     else:
         num_classes = len(set(class_map.values()))
 
-    if not features is None:
+    if features is not None:
         # pad with dummy zero vector  
         features = np.vstack([features, np.zeros((features.shape[1],))])
 
@@ -158,7 +158,10 @@ def train(train_data, test_data=None):
             batch_size=FLAGS.batch_size,
             max_degree=FLAGS.max_degree, 
             context_pairs = context_pairs)
-    adj_info_ph_list = [tf.placeholder(tf.int32, shape=minibatch_main.adj.shape) for i in range(num_relations)]
+    adj_info_ph_list = [
+        tf.placeholder(tf.int32, shape=minibatch_main.adj.shape)
+        for _ in range(num_relations)
+    ]
     adj_info_list = [tf.Variable(adj_info_ph, trainable=False, name="adj_info") for adj_info_ph in adj_info_ph_list]
     adj_info_main = adj_info_list[0]
     # print('****supervised_train****shape of adj_info**********:', adj_info.shape)
@@ -284,17 +287,17 @@ def train(train_data, test_data=None):
     config.gpu_options.allow_growth = True
     #config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_FRACTION
     config.allow_soft_placement = True
-    
+
     # Initialize session
     sess = tf.Session(config=config)
     merged = tf.summary.merge_all()
     # summary_writer = tf.summary.FileWriter(log_dir(), sess.graph)
-     
+
     # Init variables
     sess.run(tf.global_variables_initializer(), feed_dict={adj_info_ph_list[i]: minibatch_list[i].adj for i in range(num_relations)})
-    
+
     # Train model
-    
+
     total_steps = 0
     avg_time = 0.0
     epoch_val_costs = []
@@ -322,16 +325,15 @@ def train(train_data, test_data=None):
                 # sess.run(val_adj_info.op)
                 if FLAGS.validate_batch_size == -1:
                     ret = incremental_evaluate(sess, model, minibatch_main, FLAGS.batch_size)
-                    val_cost, val_f1_mic, val_f1_mac, val_auc, duration = ret
                 else:
                     ret = evaluate(sess, model, minibatch_main, FLAGS.validate_batch_size)
-                    val_cost, val_f1_mic, val_f1_mac, val_auc, duration = ret
+                val_cost, val_f1_mic, val_f1_mac, val_auc, duration = ret
                 # sess.run(train_adj_info.op)
                 epoch_val_costs[-1] += val_cost
 
             # if total_steps % FLAGS.print_every == 0:
             #     summary_writer.add_summary(outs[0], total_steps)
-    
+
             # Print results
             avg_time = (avg_time * total_steps + time.time() - t) / (total_steps + 1)
 
@@ -345,7 +347,7 @@ def train(train_data, test_data=None):
                       "val_f1_mic=", "{:.5f}".format(val_f1_mic), 
                       "val_f1_mac=", "{:.5f}".format(val_f1_mac), 
                       "time=", "{:.5f}".format(avg_time))
- 
+
             iter += 1
             total_steps += 1
 
@@ -354,7 +356,7 @@ def train(train_data, test_data=None):
 
         if total_steps > FLAGS.max_total_steps:
                 break
-    
+
     print("Optimization Finished!")
     # sess.run(val_adj_info.op)
     ret = incremental_evaluate(sess, model, minibatch_main, FLAGS.batch_size)

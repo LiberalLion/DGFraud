@@ -17,51 +17,51 @@ def normalize_adj(adj):
 
 # Construct feed dictionary
 def construct_feed_dict(x, a, t, b, learning_rate, momentum, placeholders):
-    feed_dict = dict()
-    feed_dict.update({placeholders['x']: x})
-    feed_dict.update({placeholders['a']: a})
-    feed_dict.update({placeholders['t']: t})
-    feed_dict.update({placeholders['batch_index']: b})
-    feed_dict.update({placeholders['lr']: learning_rate})
-    feed_dict.update({placeholders['mom']: momentum})
-    feed_dict.update({placeholders['num_features_nonzero']: x[1].shape})
-    return feed_dict
+    return {
+        placeholders['x']: x,
+        placeholders['a']: a,
+        placeholders['t']: t,
+        placeholders['batch_index']: b,
+        placeholders['lr']: learning_rate,
+        placeholders['mom']: momentum,
+        placeholders['num_features_nonzero']: x[1].shape,
+    }
 
 
 # Construct feed dictionary for SemiGNN
 def construct_feed_dict_semi(a, u_i, u_j, batch_graph_label, batch_data, batch_sup_label, learning_rate, momentum,
                            placeholders):
-    feed_dict = dict()
-    feed_dict.update({placeholders['a']: a})
-    feed_dict.update({placeholders['u_i']: u_i})
-    feed_dict.update({placeholders['u_j']: u_j})
-    feed_dict.update({placeholders['graph_label']: batch_graph_label})
-    feed_dict.update({placeholders['batch_index']: batch_data})
-    feed_dict.update({placeholders['sup_label']: batch_sup_label})
-    feed_dict.update({placeholders['lr']: learning_rate})
-    feed_dict.update({placeholders['mom']: momentum})
-    return feed_dict
+    return {
+        placeholders['a']: a,
+        placeholders['u_i']: u_i,
+        placeholders['u_j']: u_j,
+        placeholders['graph_label']: batch_graph_label,
+        placeholders['batch_index']: batch_data,
+        placeholders['sup_label']: batch_sup_label,
+        placeholders['lr']: learning_rate,
+        placeholders['mom']: momentum,
+    }
 
 
 # Construct feed dictionary for SemiGNN
 def construct_feed_dict_spam(h, adj_info, t, b,  learning_rate, momentum, placeholders):
-    feed_dict = dict()
-    feed_dict.update({placeholders['user_review_adj']: adj_info[0]})
-    feed_dict.update({placeholders['user_item_adj']: adj_info[1]})
-    feed_dict.update({placeholders['item_review_adj']: adj_info[2]})
-    feed_dict.update({placeholders['item_user_adj']: adj_info[3]})
-    feed_dict.update({placeholders['review_user_adj']: adj_info[4]})
-    feed_dict.update({placeholders['review_item_adj']: adj_info[5]})
-    feed_dict.update({placeholders['homo_adj']: adj_info[6]})
-    feed_dict.update({placeholders['review_vecs']: h[0]})
-    feed_dict.update({placeholders['user_vecs']: h[1]})
-    feed_dict.update({placeholders['item_vecs']: h[2]})
-    feed_dict.update({placeholders['t']: t})
-    feed_dict.update({placeholders['batch_index']: b})
-    feed_dict.update({placeholders['lr']: learning_rate})
-    feed_dict.update({placeholders['mom']: momentum})
-    feed_dict.update({placeholders['num_features_nonzero']: h[0][1].shape})
-    return feed_dict
+    return {
+        placeholders['user_review_adj']: adj_info[0],
+        placeholders['user_item_adj']: adj_info[1],
+        placeholders['item_review_adj']: adj_info[2],
+        placeholders['item_user_adj']: adj_info[3],
+        placeholders['review_user_adj']: adj_info[4],
+        placeholders['review_item_adj']: adj_info[5],
+        placeholders['homo_adj']: adj_info[6],
+        placeholders['review_vecs']: h[0],
+        placeholders['user_vecs']: h[1],
+        placeholders['item_vecs']: h[2],
+        placeholders['t']: t,
+        placeholders['batch_index']: b,
+        placeholders['lr']: learning_rate,
+        placeholders['mom']: momentum,
+        placeholders['num_features_nonzero']: h[0][1].shape,
+    }
 
 
 def pad_adjlist(x_data):
@@ -125,13 +125,12 @@ def generate_random_walk(adjlist, start, walklength):
 def random_walks(adjlist, numerate, walklength):
     nodes = range(0, len(adjlist))  # node index starts from zero
     walks = []
-    for n in range(numerate):
-        for node in nodes:
-            walks.append(generate_random_walk(adjlist, node, walklength))
+    for _ in range(numerate):
+        walks.extend(generate_random_walk(adjlist, node, walklength) for node in nodes)
     pairs = []
-    for i in range(len(walks)):
-        for j in range(1, len(walks[i])):
-            pair = [walks[i][0], walks[i][j]]
+    for walk in walks:
+        for j in range(1, len(walk)):
+            pair = [walk[0], walk[j]]
         pairs.append(pair)
     return pairs
 
@@ -154,7 +153,7 @@ def get_negative_sampling(pairs, adj_nodelist, Q=3, node_sampling='atlas'):
         u_i.append(pairs[index][0])
         u_j.append(pairs[index][1])
         graph_label.append(1)
-        for i in range(Q):
+        for _ in range(Q):
             while True:
                 if node_sampling == 'numpy':
                     negative_node = np.random.choice(num_of_nodes, node_negative_distribution)
@@ -182,7 +181,7 @@ class AliasSampling:
     def __init__(self, prob):
         self.n = len(prob)
         self.U = np.array(prob) * self.n
-        self.K = [i for i in range(len(prob))]
+        self.K = list(range(len(prob)))
         overfull, underfull = [], []
         for i, U_i in enumerate(self.U):
             if U_i > 1:
@@ -204,7 +203,4 @@ class AliasSampling:
         y = self.n * x - i
         i = i.astype(np.int32)
         res = [i[k] if y[k] < self.U[i[k]] else self.K[i[k]] for k in range(n)]
-        if n == 1:
-            return res[0]
-        else:
-            return res
+        return res[0] if n == 1 else res

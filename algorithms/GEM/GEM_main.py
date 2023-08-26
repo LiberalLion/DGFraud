@@ -30,8 +30,7 @@ def arg_parser():
     parser.add_argument('--hop', default=1, help='hop number')
     parser.add_argument('--k', default=16, help='gem layer unit')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def set_env(args):

@@ -36,11 +36,7 @@ def sparse_dropout(x, keep_prob, noise_shape):
 
 def dot(x, y, sparse=False):
     """Wrapper for tf.matmul (sparse vs dense)."""
-    if sparse:
-        res = tf.sparse_tensor_dense_matmul(x, y)
-    else:
-        res = tf.matmul(x, y)
-    return res
+    return tf.sparse_tensor_dense_matmul(x, y) if sparse else tf.matmul(x, y)
 
 
 class Layer(object):
@@ -60,12 +56,12 @@ class Layer(object):
 
     def __init__(self, **kwargs):
         allowed_kwargs = {'name', 'logging'}
-        for kwarg in kwargs.keys():
-            assert kwarg in allowed_kwargs, 'Invalid keyword argument: ' + kwarg
+        for kwarg in kwargs:
+            assert kwarg in allowed_kwargs, f'Invalid keyword argument: {kwarg}'
         name = kwargs.get('name')
         if not name:
             layer = self.__class__.__name__.lower()
-            name = layer + '_' + str(get_layer_uid(layer))
+            name = f'{layer}_{str(get_layer_uid(layer))}'
         self.name = name
         self.vars = {}
         logging = kwargs.get('logging', False)
@@ -81,15 +77,15 @@ class Layer(object):
     def __call__(self, inputs):
         with tf.name_scope(self.name):
             if self.logging and not self.sparse_inputs:
-                tf.summary.histogram(self.name + '/inputs', inputs)
+                tf.summary.histogram(f'{self.name}/inputs', inputs)
             outputs = self._call(inputs)
             if self.logging:
-                tf.summary.histogram(self.name + '/outputs', outputs)
+                tf.summary.histogram(f'{self.name}/outputs', outputs)
             return outputs
 
     def _log_vars(self):
         for var in self.vars:
-            tf.summary.histogram(self.name + '/vars/' + var, self.vars[var])
+            tf.summary.histogram(f'{self.name}/vars/{var}', self.vars[var])
 
 
 class GraphConvolution(Layer):
@@ -112,10 +108,11 @@ class GraphConvolution(Layer):
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        with tf.variable_scope(self.name + '_vars'):
+        with tf.variable_scope(f'{self.name}_vars'):
             for i in range(1):
-                self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
-                                                        name='weights_' + str(i))
+                self.vars[f'weights_{str(i)}'] = glorot(
+                    [input_dim, output_dim], name=f'weights_{str(i)}'
+                )
             if self.bias:
                 self.vars['bias'] = zeros([output_dim], name='bias')
 
@@ -132,13 +129,12 @@ class GraphConvolution(Layer):
             x = tf.nn.dropout(x, 1 - self.dropout)
 
         # convolve
-        supports = list()
+        supports = []
         for i in range(1):
             if not self.featureless:
-                pre_sup = dot(x, self.vars['weights_' + str(i)],
-                              sparse=self.sparse_inputs)
+                pre_sup = dot(x, self.vars[f'weights_{str(i)}'], sparse=self.sparse_inputs)
             else:
-                pre_sup = self.vars['weights_' + str(i)]
+                pre_sup = self.vars[f'weights_{str(i)}']
             support = dot(self.support[self.index], pre_sup, sparse=False)
             supports.append(support)
         output = tf.add_n(supports)
@@ -164,11 +160,10 @@ class AttentionLayer(Layer):
     Hval to an weighted sum of elements in Hval.
     """
 
-    def attention(inputs, attention_size, v_type=None, return_weights=False, bias=True, joint_type='weighted_sum',
-                  multi_view=True):
+    def attention(self, attention_size, v_type=None, return_weights=False, bias=True, joint_type='weighted_sum', multi_view=True):
         if multi_view:
-            inputs = tf.expand_dims(inputs, 0)
-        hidden_size = inputs.shape[-1].value
+            self = tf.expand_dims(self, 0)
+        hidden_size = self.shape[-1].value
 
         # Trainable parameters
         w_omega = tf.Variable(tf.random_normal([hidden_size, attention_size], stddev=0.1))
@@ -176,7 +171,7 @@ class AttentionLayer(Layer):
         u_omega = tf.Variable(tf.random_normal([attention_size], stddev=0.1))
 
         with tf.name_scope('v'):
-            v = tf.tensordot(inputs, w_omega, axes=1)
+            v = tf.tensordot(self, w_omega, axes=1)
             if bias is True:
                 v += b_omega
             if v_type is 'tanh':
@@ -188,17 +183,14 @@ class AttentionLayer(Layer):
         weights = tf.nn.softmax(vu, name='alphas')
 
         if joint_type is 'weighted_sum':
-            output = tf.reduce_sum(inputs * tf.expand_dims(weights, -1), 1)
+            output = tf.reduce_sum(self * tf.expand_dims(weights, -1), 1)
         if joint_type is 'concatenation':
-            output = tf.concat(inputs * tf.expand_dims(weights, -1), 2)
+            output = tf.concat(self * tf.expand_dims(weights, -1), 2)
 
-        if not return_weights:
-            return output
-        else:
-            return output, weights
+        return output if not return_weights else (output, weights)
 
-    def node_attention(inputs, adj, return_weights=False):
-        hidden_size = inputs.shape[-1].value
+    def node_attention(self, adj, return_weights=False):
+        hidden_size = self.shape[-1].value
         H_v = tf.Variable(tf.random_normal([hidden_size, 1], stddev=0.1))
 
         # convert adj to sparse tensor
@@ -211,41 +203,35 @@ class AttentionLayer(Layer):
                               dense_shape=adj.shape)
 
         with tf.name_scope('v'):
-            v = adj * tf.squeeze(tf.tensordot(inputs, H_v, axes=1))
+            v = adj * tf.squeeze(tf.tensordot(self, H_v, axes=1))
 
         weights = tf.sparse_softmax(v, name='alphas')  # [nodes,nodes]
-        output = tf.sparse_tensor_dense_matmul(weights, inputs)
+        output = tf.sparse_tensor_dense_matmul(weights, self)
 
-        if not return_weights:
-            return output
-        else:
-            return output, weights
+        return output if not return_weights else (output, weights)
 
     # view-level attention (equation (4) in SemiGNN)
-    def view_attention(inputs, encoding1, encoding2, layer_size, meta, return_weights=False):
-        h = inputs
+    def view_attention(self, encoding1, encoding2, layer_size, meta, return_weights=False):
+        h = self
         encoding = [encoding1, encoding2]
         for l in range(layer_size):
             v = []
             for i in range(meta):
                 input = h[i]
-                v_i = tf.layers.dense(inputs=input, units=encoding[l], activation=tf.nn.relu)
+                v_i = tf.layers.dense(self=input, units=encoding[l], activation=tf.nn.relu)
                 v.append(v_i)
             h = v
 
         h = tf.concat(h, 0)
-        h = tf.reshape(h, [meta, inputs[0].shape[0].value, encoding2])
+        h = tf.reshape(h, [meta, self[0].shape[0].value, encoding2])
         phi = tf.Variable(tf.random_normal([encoding2, ], stddev=0.1))
         weights = tf.nn.softmax(h * phi, name='alphas')
-        output = tf.reshape(h * weights, [1, inputs[0].shape[0] * encoding2 * meta])
+        output = tf.reshape(h * weights, [1, self[0].shape[0] * encoding2 * meta])
 
-        if not return_weights:
-            return output
-        else:
-            return output, weights
+        return output if not return_weights else (output, weights)
 
-    def scaled_dot_product_attention(q, k, v, mask):
-        qk = tf.matmul(q, k, transpose_b=True)
+    def scaled_dot_product_attention(self, k, v, mask):
+        qk = tf.matmul(self, k, transpose_b=True)
         dk = tf.cast(tf.shape(k)[-1], tf.float32)
         scaled_attention = qk / tf.math.sqrt(dk)
 
@@ -277,11 +263,7 @@ class ConcatenationAggregator(Layer):
         self.act = act
         self.concat = concat
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['con_agg_weights'] = glorot([input_dim, output_dim],
                                                   name='con_agg_weights')
@@ -335,11 +317,7 @@ class AttentionAggregator(Layer):
         self.review_vecs = review_vecs
         self.user_vecs = user_vecs
         self.item_vecs = item_vecs
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         with tf.variable_scope(self.name + name + '_vars'):
 
             self.vars['user_weights'] = glorot([input_dim1, hid_dim],
@@ -442,11 +420,7 @@ class GASConcatenation(Layer):
         self.item_vecs = item_vecs
         self.homo_vecs = homo_vecs
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         if self.logging:
             self._log_vars()
 
@@ -457,11 +431,7 @@ class GASConcatenation(Layer):
         # ir = tf.slice(ir, [0, 0], [-1, num_samples])
 
         ru = tf.nn.embedding_lookup(self.user_vecs, tf.cast(self.review_user_adj, dtype=tf.int32))
-        # ru = tf.transpose(tf.random_shuffle(tf.transpose(ru)))
-        # ru = tf.slice(ru, [0, 0], [-1, num_samples])
-
-        concate_vecs = tf.concat([ri, self.review_vecs, ru, self.homo_vecs], axis=1)
-        return concate_vecs
+        return tf.concat([ri, self.review_vecs, ru, self.homo_vecs], axis=1)
 
 
 class GEMLayer(Layer):
@@ -478,11 +448,7 @@ class GEMLayer(Layer):
         self.embedding = embedding
         self.placeholders = placeholders
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         with tf.variable_scope(self.name + name + '_vars'):
             self.vars['W'] = glorot([embedding, encoding], name='W')
             self.vars['V'] = glorot([encoding, encoding], name='V')
@@ -501,8 +467,7 @@ class GEMLayer(Layer):
         h2 = tf.transpose(h2, [1, 0])
         h2 = tf.reshape(tf.matmul(h2, tf.nn.softmax(self.vars['alpha'])), [self.nodes, self.encoding])
 
-        h = tf.nn.sigmoid(h1 + h2)
-        return h
+        return tf.nn.sigmoid(h1 + h2)
 
 
 class GAT(Layer):
@@ -518,11 +483,7 @@ class GAT(Layer):
         self.bias_mat = bias_mat
         self.n_heads = n_heads
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         if self.logging:
             self._log_vars()
 
@@ -558,13 +519,19 @@ class GAT(Layer):
             return activation(ret)
 
     def inference(self, inputs):
-        out = []
-        # for i in range(n_heads[-1]):
-        for i in range(self.n_heads):
-            out.append(self.attn_head(inputs, bias_mat=self.bias_mat, out_sz=self.dim, activation=tf.nn.elu,
-                                      in_drop=self.ffd_drop, coef_drop=self.attn_drop, residual=False))
-        logits = tf.add_n(out) / self.n_heads
-        return logits
+        out = [
+            self.attn_head(
+                inputs,
+                bias_mat=self.bias_mat,
+                out_sz=self.dim,
+                activation=tf.nn.elu,
+                in_drop=self.ffd_drop,
+                coef_drop=self.attn_drop,
+                residual=False,
+            )
+            for _ in range(self.n_heads)
+        ]
+        return tf.add_n(out) / self.n_heads
 
 
 class GeniePathLayer(Layer):
@@ -582,11 +549,7 @@ class GeniePathLayer(Layer):
         self.heads = heads
         self.placeholders = placeholders
 
-        if name is not None:
-            name = '/' + name
-        else:
-            name = ''
-
+        name = f'/{name}' if name is not None else ''
         if self.logging:
             self._log_vars()
 

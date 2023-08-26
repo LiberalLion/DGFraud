@@ -11,8 +11,7 @@ import zipfile
 # zip_src = '../dataset/DBLP4057_GAT_with_idx_tra200_val_800.zip'
 # dst_dir = '../dataset'
 def unzip_file(zip_src, dst_dir):
-    iz = zipfile.is_zipfile(zip_src)
-    if iz:
+    if iz := zipfile.is_zipfile(zip_src):
         zf = zipfile.ZipFile(zip_src, 'r')
         for file in zf.namelist():
             zf.extract(file, dst_dir)

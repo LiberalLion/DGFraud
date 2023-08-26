@@ -58,7 +58,6 @@ class DistanceNeighborSampler(Layer):
         prob = tf.divide(prob, prob_sum)
         prob = tf.where(prob>eps, prob, 0*prob) # uncommenting this line to use eps to filter small probabilities
         samples_idx = tf.random.categorical(tf.math.log(prob), num_samples)
-        selected = tf.batch_gather(adj_lists, samples_idx)
-        return selected
+        return tf.batch_gather(adj_lists, samples_idx)
 
 
